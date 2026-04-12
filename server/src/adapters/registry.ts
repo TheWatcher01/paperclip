@@ -55,6 +55,15 @@ import {
   agentConfigurationDoc as openclawGatewayAgentConfigurationDoc,
   models as openclawGatewayModels,
 } from "@paperclipai/adapter-openclaw-gateway";
+import {
+  execute as githubCopilotExecute,
+  testEnvironment as githubCopilotTestEnvironment,
+  sessionCodec as githubCopilotSessionCodec,
+} from "@paperclipai/adapter-github-copilot/server";
+import {
+  agentConfigurationDoc as githubCopilotAgentConfigurationDoc,
+  models as githubCopilotModels,
+} from "@paperclipai/adapter-github-copilot";
 import { listCodexModels } from "./codex-models.js";
 import { listCursorModels } from "./cursor-models.js";
 import {
@@ -152,6 +161,16 @@ const openclawGatewayAdapter: ServerAdapterModule = {
   agentConfigurationDoc: openclawGatewayAgentConfigurationDoc,
 };
 
+const githubCopilotAdapter: ServerAdapterModule = {
+  type: "github_copilot",
+  execute: githubCopilotExecute,
+  testEnvironment: githubCopilotTestEnvironment,
+  sessionCodec: githubCopilotSessionCodec,
+  models: githubCopilotModels,
+  supportsLocalAgentJwt: false,
+  agentConfigurationDoc: githubCopilotAgentConfigurationDoc,
+};
+
 const openCodeLocalAdapter: ServerAdapterModule = {
   type: "opencode_local",
   execute: openCodeExecute,
@@ -213,6 +232,7 @@ function registerBuiltInAdapters() {
     cursorLocalAdapter,
     geminiLocalAdapter,
     openclawGatewayAdapter,
+    githubCopilotAdapter,
     hermesLocalAdapter,
     processAdapter,
     httpAdapter,
