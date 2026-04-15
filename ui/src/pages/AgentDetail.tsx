@@ -3256,6 +3256,11 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 )}
               </div>
             )}
+            {run.errorCode === "claude_rate_limited" && adapterType === "claude_local" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                <p>Claude subscription limit reached. Retry after the quota resets, or switch to an API key.</p>
+              </div>
+            )}
             {hasNonZeroExit && (
               <div className="text-xs text-red-600 dark:text-red-400">
                 Exit code {run.exitCode}
