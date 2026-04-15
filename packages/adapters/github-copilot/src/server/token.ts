@@ -73,6 +73,41 @@ function defaultCredentialPaths(): string[] {
 }
 
 /**
+ * Try to find a ghu_* token from OpenClaw auth-profiles.
+ * This mirrors how OpenClaw agents auto-resolve their GitHub Copilot tokens.
+ */
+async function findGhuTokenFromAuthProfiles(): Promise<string | null> {
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const profilePaths = [
+    path.join(home, ".openclaw", "agents", "main", "agent", "auth-profiles.json"),
+    path.join(home, ".openclaw", "auth-profiles.json"),
+  ];
+
+  for (const p of profilePaths) {
+    try {
+      const raw = await fs.readFile(p, "utf-8");
+      const data = JSON.parse(raw) as {
+        profiles?: Record<string, { token?: string; type?: string; provider?: string }>;
+      };
+      if (data.profiles) {
+        for (const profile of Object.values(data.profiles)) {
+          if (
+            profile.provider === "github-copilot" &&
+            typeof profile.token === "string" &&
+            profile.token.startsWith("ghu_")
+          ) {
+            return profile.token;
+          }
+        }
+      }
+    } catch {
+      // Fichier absent ou invalide — continuer
+    }
+  }
+  return null;
+}
+
+/**
  * Read a cached token from a credential file.
  */
 async function readCachedTokenFile(filePath: string): Promise<CopilotTokenCache | null> {
@@ -171,8 +206,12 @@ export async function resolveCopilotToken(config: Record<string, unknown>): Prom
     }
   }
 
-  // 3. GitHub token exchange (fallback — only for ghu_* Copilot OAuth tokens)
-  const githubToken = env.GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  // 3. GitHub token exchange — check config.githubToken first (like OpenClaw auth-profiles),
+  //    then fall back to env var. This enables automatic token renewal without env vars.
+  const githubToken =
+    (typeof config.githubToken === "string" && config.githubToken.startsWith("ghu_") ? config.githubToken : null)
+    ?? env.GITHUB_TOKEN
+    ?? process.env.GITHUB_TOKEN;
   if (githubToken && githubToken.startsWith("ghu_")) {
     try {
       cachedToken = await exchangeGitHubToken(githubToken);
@@ -180,7 +219,20 @@ export async function resolveCopilotToken(config: Record<string, unknown>): Prom
       await writeCachedTokenFile(cachePath, cachedToken).catch(() => {});
       return { token: cachedToken.token, baseUrl: extractBaseUrl(cachedToken.token) };
     } catch {
-      // Token exchange failed — fall through to error
+      // Token exchange failed — fall through
+    }
+  }
+
+  // 4. Auto-discover ghu_* from OpenClaw auth-profiles (like Albert does)
+  const discoveredGhu = await findGhuTokenFromAuthProfiles();
+  if (discoveredGhu) {
+    try {
+      cachedToken = await exchangeGitHubToken(discoveredGhu);
+      const cachePath = credentialPath ?? defaultCredentialPaths()[0];
+      await writeCachedTokenFile(cachePath, cachedToken).catch(() => {});
+      return { token: cachedToken.token, baseUrl: extractBaseUrl(cachedToken.token) };
+    } catch {
+      // Discovery exchange failed — fall through to error
     }
   }
 

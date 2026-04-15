@@ -1,13 +1,17 @@
 import os from "node:os";
-import { Router } from "express";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { Router, type Request } from "express";
+import { count, inArray } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import { heartbeatRuns } from "@paperclipai/db";
+import { forbidden } from "../errors.js";
 
 export function systemResourcesRoutes(db: Db) {
   const router = Router();
 
-  router.get("/instance/system-resources", async (_req, res) => {
+  router.get("/instance/system-resources", async (req: Request, res) => {
+    if (req.actor.type !== "board") {
+      throw forbidden("Board access required");
+    }
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
     const usedMem = totalMem - freeMem;
