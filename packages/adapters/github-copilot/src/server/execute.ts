@@ -136,6 +136,24 @@ export async function execute(
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
       await onLog("stderr", `[github_copilot] API error ${res.status}: ${errBody.slice(0, 500)}\n`);
+
+      if (res.status === 429) {
+        const retryAfterRaw = res.headers.get("retry-after") ?? res.headers.get("x-ratelimit-reset");
+        const retryAfterSec = retryAfterRaw ? Math.max(0, Number(retryAfterRaw)) : null;
+        const remaining = res.headers.get("x-ratelimit-remaining");
+        return {
+          exitCode: 1,
+          signal: null,
+          timedOut: false,
+          errorMessage: `GitHub Copilot rate limit reached. ${retryAfterSec != null ? `Retry after ${retryAfterSec}s.` : ""}`.trim(),
+          errorCode: "copilot_rate_limited",
+          errorMeta: {
+            retryAfterSec: retryAfterSec ?? null,
+            rateLimitRemaining: remaining != null ? Number(remaining) : null,
+          },
+        };
+      }
+
       return {
         exitCode: 1,
         signal: null,
