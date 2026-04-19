@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Paperclip Control Plane — agentic agency
+# Port 3100 (UI + API). Postgres embedded via Drizzle.
+# Secrets via Infisical (PAPERCLIP_API_TOKEN, LLM providers keys).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  paperclip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperclip
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      DATABASE_URL: ${PAPERCLIP_DATABASE_URL:-postgres://paperclip@paperclip-db:5432/paperclip}
+      PAPERCLIP_API_TOKEN: ${PAPERCLIP_API_TOKEN}
+      SUBVENTION_AI_CALLBACK_URL: http://subvention-ai-app:3000/api/admin/enrichment/paperclip-callback
+      SUBVENTION_AI_CALLBACK_SECRET: ${SUBVENTION_AI_CALLBACK_SECRET}
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+    networks:
+      - paperclip-net
+      - subvention-ai_subvention-ai
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:3100/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  paperclip-db:
+    image: postgres:16-alpine
+    container_name: paperclip-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paperclip
+      POSTGRES_DB: paperclip
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - paperclip-pgdata:/var/lib/postgresql/data
+    networks:
+      - paperclip-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip -d paperclip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  paperclip-pgdata:
+
+networks:
+  paperclip-net:
+    driver: bridge
+  subvention-ai_subvention-ai:
+    external: true
