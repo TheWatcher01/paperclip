@@ -20,6 +20,7 @@ services:
       PAPERCLIP_API_TOKEN: ${PAPERCLIP_API_TOKEN}
       SUBVENTION_AI_CALLBACK_URL: http://subvention-ai-app:3000/api/admin/enrichment/paperclip-callback
       SUBVENTION_AI_CALLBACK_SECRET: ${SUBVENTION_AI_CALLBACK_SECRET}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
     depends_on:
       paperclip-db:
         condition: service_healthy
@@ -34,13 +35,14 @@ services:
       start_period: 60s
 
   paperclip-db:
-    image: postgres:16-alpine
+    image: postgres:18
     container_name: paperclip-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: paperclip
       POSTGRES_DB: paperclip
       POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: /var/lib/postgresql/data
     volumes:
       - paperclip-pgdata:/var/lib/postgresql/data
     networks:
