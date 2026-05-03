@@ -46,6 +46,7 @@ import {
   detectClaudeLoginRequired,
   extractClaudeRetryNotBefore,
   isClaudeMaxTurnsResult,
+  isClaudeRateLimitResult,
   isClaudeTransientUpstreamError,
   isClaudeUnknownSessionError,
 } from "./parse.js";
@@ -792,12 +793,15 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           errorMessage,
         })
       : null;
+    const isRateLimit = isClaudeRateLimitResult(parsed);
     const resolvedErrorCode = loginMeta.requiresLogin
       ? "claude_auth_required"
       : failed && clearSessionForMaxTurns
       ? "max_turns_exhausted"
       : transientUpstream
       ? "claude_transient_upstream"
+      : isRateLimit
+      ? "claude_rate_limited"
       : null;
     const mergedResultJson: Record<string, unknown> = {
       ...parsed,

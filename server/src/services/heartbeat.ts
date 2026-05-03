@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { execFile as execFileCallback } from "node:child_process";
 import { promisify } from "node:util";
@@ -155,6 +156,10 @@ const MAX_RUN_EVENT_PAYLOAD_DEPTH = 6;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = AGENT_DEFAULT_MAX_CONCURRENT_RUNS;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MIN = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 50;
+/** Fork-specific: cap concurrent runs across all agents of a single company */
+const COMPANY_MAX_CONCURRENT_RUNS_DEFAULT = 3;
+/** Minimum free RAM (bytes) required before claiming a new run (1.5 GB) */
+const MIN_FREE_RAM_BYTES = 1.5 * 1024 * 1024 * 1024;
 const LIVENESS_BOOKKEEPING_ACTIVITY_ACTIONS = [
   "environment.lease_acquired",
   "environment.lease_released",
@@ -5152,6 +5157,26 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
     return Number(count ?? 0);
   }
 
+  async function countRunningRunsForCompany(companyId: string) {
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(heartbeatRuns)
+      .where(and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.status, "running")));
+    return Number(count ?? 0);
+  }
+
+  function hasEnoughRam(): boolean {
+    const freeMem = os.freemem();
+    if (freeMem < MIN_FREE_RAM_BYTES) {
+      logger.warn(
+        { freeMemMb: Math.round(freeMem / 1024 / 1024), thresholdMb: Math.round(MIN_FREE_RAM_BYTES / 1024 / 1024) },
+        "[scheduler] Insufficient free RAM — deferring run claim",
+      );
+      return false;
+    }
+    return true;
+  }
+
   async function claimQueuedRun(run: typeof heartbeatRuns.$inferSelect) {
     if (run.status !== "queued") return run;
     const agent = await getAgent(run.agentId);
@@ -6036,6 +6061,14 @@ export function heartbeatService(db: Db, options: HeartbeatServiceOptions = {}) 
       if (agent.status === "paused" || agent.status === "terminated" || agent.status === "pending_approval") {
         return [];
       }
+
+      // System resource gate: defer if not enough free RAM
+      if (!hasEnoughRam()) return [];
+
+      // Company-level concurrency gate
+      const companyRunningCount = await countRunningRunsForCompany(agent.companyId);
+      if (companyRunningCount >= COMPANY_MAX_CONCURRENT_RUNS_DEFAULT) return [];
+
       const policy = parseHeartbeatPolicy(agent);
       const runningCount = await countRunningRunsForAgent(agentId);
       const availableSlots = Math.max(0, policy.maxConcurrentRuns - runningCount);

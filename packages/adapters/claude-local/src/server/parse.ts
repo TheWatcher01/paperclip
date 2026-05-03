@@ -185,6 +185,15 @@ export function isClaudeMaxTurnsResult(parsed: Record<string, unknown> | null | 
   );
 }
 
+export function isClaudeRateLimitResult(parsed: Record<string, unknown> | null | undefined): boolean {
+  if (!parsed) return false;
+  const resultText = asString(parsed.result, "").trim();
+  const allMessages = [resultText, ...extractClaudeErrorMessages(parsed)]
+    .map((msg) => msg.trim())
+    .filter(Boolean);
+  return allMessages.some((msg) => /you.ve hit your limit|hit your (usage )?limit/i.test(msg));
+}
+
 export function isClaudeUnknownSessionError(parsed: Record<string, unknown>): boolean {
   const resultText = asString(parsed.result, "").trim();
   const allMessages = [resultText, ...extractClaudeErrorMessages(parsed)]

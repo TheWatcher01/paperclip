@@ -33,6 +33,7 @@ export interface HeartbeatRun {
   stdoutExcerpt: string | null;
   stderrExcerpt: string | null;
   errorCode: string | null;
+  errorMeta?: Record<string, unknown> | null;
   externalRunId: string | null;
   processPid: number | null;
   processGroupId?: number | null;

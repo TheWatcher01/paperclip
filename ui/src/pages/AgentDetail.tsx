@@ -3322,6 +3322,21 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                 )}
               </div>
             )}
+            {run.errorCode === "claude_rate_limited" && adapterType === "claude_local" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                <p>Claude subscription limit reached. Retry after the quota resets, or switch to an API key.</p>
+              </div>
+            )}
+            {run.errorCode === "copilot_rate_limited" && adapterType === "github_copilot" && (
+              <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                <p>
+                  GitHub Copilot rate limit reached.{" "}
+                  {(run.errorMeta as { retryAfterSec?: number } | null)?.retryAfterSec
+                    ? `Retry in ${(run.errorMeta as { retryAfterSec: number }).retryAfterSec}s.`
+                    : "Retry after a moment."}
+                </p>
+              </div>
+            )}
             {hasNonZeroExit && (
               <div className="text-xs text-red-600 dark:text-red-400">
                 Exit code {run.exitCode}

@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Paperclip Control Plane — agentic agency
+# Port 3100 (UI + API). Postgres embedded via Drizzle.
+# Secrets via Infisical (PAPERCLIP_API_TOKEN, LLM providers keys).
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  paperclip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperclip
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      DATABASE_URL: ${PAPERCLIP_DATABASE_URL:-postgres://paperclip@paperclip-db:5432/paperclip}
+      PAPERCLIP_API_TOKEN: ${PAPERCLIP_API_TOKEN}
+      PAPERCLIP_ALLOWED_HOSTNAMES: "127.0.0.1,localhost,paperclip,paperclip.dev31.fr"
+      SUBVENTION_AI_CALLBACK_URL: http://subvention-ai-app:3000/api/admin/enrichment/paperclip-callback
+      SUBVENTION_AI_CALLBACK_SECRET: ${SUBVENTION_AI_CALLBACK_SECRET}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      # Phase A.1 — Copilot token visible depuis le container
+      GITHUB_COPILOT_TOKEN_FILE: /openclaw/credentials/github-copilot.token.json
+      HOME_HOST: /home/TheWatcher01
+      # Phase I.2 — Langfuse self-hosted tracing (consommé une fois adapter Paperclip instrumenté)
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://langfuse.dev31.fr}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+    volumes:
+      # Phase A.1 — Mount credentials Copilot là où l'adapter le cherche (HOME=/paperclip dans le container)
+      - /home/TheWatcher01/.openclaw/credentials:/paperclip/.openclaw/credentials:ro
+      # Compat path supplémentaire (au cas où un autre adapter regarde ici)
+      - /home/TheWatcher01/.openclaw/credentials:/openclaw/credentials:ro
+      # Phase A.1bis — Mount auth-profiles OpenClaw pour findGhuTokenFromAuthProfiles() (token ghu_* refresh)
+      - /home/TheWatcher01/.openclaw/agents/main/agent/auth-profiles.json:/paperclip/.openclaw/agents/main/agent/auth-profiles.json:ro
+      - /home/TheWatcher01/.openclaw/auth-profiles.json:/paperclip/.openclaw/auth-profiles.json:ro
+      # Mount projets host (read-only) pour Albert claude_local fallback éventuel
+      - /home/TheWatcher01/projects:/home/TheWatcher01/projects:ro
+    extra_hosts:
+      # Phase A.1 — accès OpenClaw gateway depuis le container (pour Albert openclaw_gateway)
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      paperclip-db:
+        condition: service_healthy
+    networks:
+      - paperclip-net
+      - subvention-ai_subvention-ai
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider --quiet http://localhost:3100/api/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  paperclip-db:
+    image: postgres:18
+    container_name: paperclip-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: paperclip
+      POSTGRES_DB: paperclip
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - paperclip-pgdata:/var/lib/postgresql/data
+    networks:
+      - paperclip-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperclip -d paperclip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  paperclip-pgdata:
+
+networks:
+  paperclip-net:
+    driver: bridge
+  subvention-ai_subvention-ai:
+    external: true
