@@ -213,8 +213,6 @@ export async function createApp(
   api.use(inboxDismissalRoutes(db));
   api.use(instanceSettingsRoutes(db));
   api.use(systemResourcesRoutes(db));
-  const hostServicesDisposers = new Map<string, () => void>();
-  const workerManager = createPluginWorkerManager();
   if (opts.databaseBackupService) {
     api.use(instanceDatabaseBackupRoutes(opts.databaseBackupService));
   }

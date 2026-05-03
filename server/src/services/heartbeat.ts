@@ -147,6 +147,8 @@ const MAX_RUN_EVENT_PAYLOAD_DEPTH = 6;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_DEFAULT = AGENT_DEFAULT_MAX_CONCURRENT_RUNS;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MIN = 1;
 const HEARTBEAT_MAX_CONCURRENT_RUNS_MAX = 50;
+/** Fork-specific: cap concurrent runs across all agents of a single company */
+const COMPANY_MAX_CONCURRENT_RUNS_DEFAULT = 3;
 /** Minimum free RAM (bytes) required before claiming a new run (1.5 GB) */
 const MIN_FREE_RAM_BYTES = 1.5 * 1024 * 1024 * 1024;
 const LIVENESS_BOOKKEEPING_ACTIVITY_ACTIONS = [

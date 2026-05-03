@@ -18,7 +18,7 @@ services:
       PORT: 3100
       DATABASE_URL: ${PAPERCLIP_DATABASE_URL:-postgres://paperclip@paperclip-db:5432/paperclip}
       PAPERCLIP_API_TOKEN: ${PAPERCLIP_API_TOKEN}
-      PAPERCLIP_ALLOWED_HOSTNAMES: "127.0.0.1,localhost,paperclip.dev31.fr"
+      PAPERCLIP_ALLOWED_HOSTNAMES: "127.0.0.1,localhost,paperclip,paperclip.dev31.fr"
       SUBVENTION_AI_CALLBACK_URL: http://subvention-ai-app:3000/api/admin/enrichment/paperclip-callback
       SUBVENTION_AI_CALLBACK_SECRET: ${SUBVENTION_AI_CALLBACK_SECRET}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
